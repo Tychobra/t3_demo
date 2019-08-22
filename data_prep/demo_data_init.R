@@ -21,18 +21,38 @@ hours <- hours %>%
     ),
     description = sample(c("Bug fixes", "Updated tables", "Added charts", "Prepped Data"), nrow(hours), replace = TRUE),
     date = as.character(date)
-  )
+  ) %>% 
+  select(-id)
 
 conn2 <- DBI::dbConnect(
   RSQLite::SQLite(), 
   dbname = "shiny_app/data/hours_db.sqlite3"
 )
 
+create_hours_query <- "CREATE TABLE hours2 (
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  date                    DATE,
+  start_time              CHARACTER VARYING (5),
+  end_time                CHARACTER VARYING (5),
+  time                    REAL,
+  client_short_name       TEXT,
+  project_name            TEXT,
+  description             TEXT,
+  billable_hourly         BOOLEAN,
+  time_created            TIMESTAMP WITH TIME ZONE,
+  created_by              TEXT,
+  time_modified           TIMESTAMP WITH TIME ZONE,
+  modified_by             TEXT
+)"
+
+DBI::dbExecute(conn2, "DROP TABLE IF EXISTS hours2")
+DBI::dbExecute(conn2, create_hours_query)
+
 DBI::dbWriteTable(
   conn2,
   "hours2",
   hours,
-  overwrite = TRUE
+  append = TRUE
 )
 
 DBI::dbListTables(conn2)

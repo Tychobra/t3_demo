@@ -1,0 +1,74 @@
+/*************
+*
+*   general
+*
+*************/
+.color_white {
+  color: #FFF;
+}
+
+.full_width {
+  width: 100%;
+}
+
+.color_black {
+  color: #000 !important;
+}
+
+.datepicker-dropdown {
+  z-index: 100000 !important;
+}
+
+/*************
+*
+*   DT
+*
+*************/
+.width_75 {
+  width: 75px;
+}
+
+.width_105 {
+  width: 105px;
+}
+
+.width_135 {
+  width: 135px;
+}
+
+.datatables table {
+  white-space: nowrap;
+}
+
+.datatables th {
+  text-align: center !important;
+}
+
+/* move DT download button to right */
+.dt-buttons {
+    float: right !important;
+    margin-bottom: -4px !important;
+}
+
+
+
+
+/*************
+*
+*   rhandsontable
+*
+*************/
+.ht_master tr > td:nth-child(6) {
+  background-color: #eee;
+}
+
+
+.bold {
+  font-weight: bold;
+}
+
+.changed {
+  background-color: #ffb6c1 !important;
+}
+
+

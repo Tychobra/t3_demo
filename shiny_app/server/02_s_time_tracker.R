@@ -175,6 +175,11 @@ valid_entries <- eventReactive(input$time_tracker_commit, {
     return(NULL)
   }
 
+  if (any(valid_time_check$project_name == "") || any(is.na(valid_time_check$project_name))) {
+    toastr_error("Project cannot be empty")
+    return(NULL)
+  }
+
 
   changed_rows %>%
     mutate(time = diff_time(start_time, end_time))

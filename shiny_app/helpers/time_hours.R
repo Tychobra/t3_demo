@@ -1,5 +1,5 @@
 #### some functions for calculating hours based on time
-valid_times <- function() {
+valid_times <- (function() {
   hours <- 0:23
   hours <- as.character(hours)
   #hours <- ifelse(nchar(hours) == 1, paste0("0", hours), hours)
@@ -7,8 +7,29 @@ valid_times <- function() {
   minutes <- c(":00", ":15", ":30", ":45")
 
   paste0(hours, minutes)
-}
+})()
 
+
+
+#' check if time is valid
+#'
+#'
+#' @param my_time times to check
+#'
+#' @examples
+#'
+#' test_time <- "8:30"
+#'
+#' test_times <- c("7:15", "12:30")
+#'
+#' is_time_valid(test_time)
+#' is_time_valid(test_times)
+#'
+#'
+is_time_valid <- function(my_time) {
+  my_time %in% valid_times
+}
+is_time_valid_vec <- Vectorize(is_time_valid, USE.NAMES = FALSE)
 
 #' diff_time
 #'
@@ -58,3 +79,28 @@ time_to_hours <- function(.time) {
 }
 
 time_to_hours_vec <- function(x) unlist(lapply(x, function(x) time_to_hours(x)))
+
+
+
+#' create blank rows
+#'
+#' these go on the bottom of the time tracker table
+#'
+#' @param nume_rows the number of rows to create
+#'
+#' @examples
+#'
+#' create_blank_rows(10)
+#'
+create_blank_rows <- function(num_rows) {
+  tibble(
+    id = rep(NA_integer_, num_rows),
+    date = rep(NA_character_, num_rows) %>% as.Date(),
+    start_time = rep(NA_character_, num_rows),
+    end_time = rep(NA_character_, num_rows),
+    time = rep(NA_real_, num_rows),
+    client_short_name = rep("", num_rows),
+    project_name = rep("", num_rows),
+    description = rep("", num_rows)
+  )
+}

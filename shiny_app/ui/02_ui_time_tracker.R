@@ -1,13 +1,5 @@
-tagList(
-  # fluidRow(
-  #   column(
-  #     12,
-  #     tags$a(
-  #       href = "https://docs.google.com/spreadsheets/d/16A-WTQT2i5lVEcmo53bKWuOeD4O5lBnivXAqn3KK2PY/edit#gid=615189040",
-  #       h1("Edit in Google Sheets")
-  #     )
-  #   )
-  # ),
+tabItem(
+  tabName = "time_tracker",
   fluidRow(
     box(
       width = 12,
@@ -80,6 +72,14 @@ tagList(
                 icon = icon("times"),
                 class = "btn-danger color_white"
               ) %>% disabled()
+            ),
+            div(
+              class = "pull-right",
+              style = "display: inline-block",
+              downloadButton(
+                "download_hours",
+                "Download"
+              )
             )
           )
         ),

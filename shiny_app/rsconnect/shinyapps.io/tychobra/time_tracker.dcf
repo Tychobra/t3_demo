@@ -1,0 +1,10 @@
+name: time_tracker
+title:
+username:
+account: tychobra
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 404099
+bundleId: 1561946
+url: https://tychobra.shinyapps.io/time_tracker/
+when: 1535638051.46434

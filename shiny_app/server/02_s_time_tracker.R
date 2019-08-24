@@ -13,8 +13,9 @@ observe({
   out <- pool %>%
     tbl("hours2") %>%
     filter(created_by == hold_user) %>%
-    collect()
-  
+    collect() %>%
+    mutate(date = as.Date(date))
+
   if (nrow(out) > 0) {
     out <- out %>%
       mutate(
@@ -29,8 +30,7 @@ observe({
   }
 
   out <- out %>%
-    select(id, date, start_time, end_time, time, client_short_name, project_name, description) %>% 
-    mutate(date = as.Date(date))
+    select(id, date, start_time, end_time, time, client_short_name, project_name, description)
 
   hours(out)
 }, priority = -1)
@@ -40,9 +40,11 @@ observe({
 
 # filter for just the most recent few hours.  These will be the hours
 # displayed in the time tracker table.
+
+num_rows_trigger <- reactiveVal(0)
 observeEvent({
   hours()
-  num_rows()
+  num_rows_trigger()
 }, {
   req(hours())
   hold <- hours()
@@ -52,32 +54,7 @@ observeEvent({
 
   start_row <- max(n_rows - n_rows_to_display + 1, 1)
 
-
-  hold <- hold[start_row:n_rows, ]
-
-  out <- hold
-
-  n_rows_blank <- max(10, 20 - nrow(out))
-  blank_rows <- tibble(
-    id = rep(NA_integer_, n_rows_blank),
-    date = rep(NA_character_, n_rows_blank) %>% as.Date(),
-    start_time = rep(NA_character_, n_rows_blank),
-    end_time = rep(NA_character_, n_rows_blank),
-    time = rep(NA_real_, n_rows_blank),
-    client_short_name = rep("", n_rows_blank),
-    project_name = rep("", n_rows_blank),
-    description = rep("", n_rows_blank)
-  )
-
-
-
-
-  out <- bind_rows(
-    out,
-    blank_rows
-  )
-
-  hours_rows(out)
+  hours_rows(hold[start_row:n_rows, ])
 })
 
 
@@ -102,10 +79,19 @@ observeEvent(input$num_rows, {
 
 handson_time <- reactive({
   req(hours_rows())
+  out <- hours_rows()
 
-  hold <- hours_rows()
+  n_rows_blank <- max(10, 20 - nrow(out))
 
-  hold
+  blank_rows <- create_blank_rows(n_rows_blank)
+
+
+  out <- bind_rows(
+    out,
+    blank_rows
+  )
+
+  out
 })
 
 
@@ -114,19 +100,40 @@ have_cells_changed <- reactiveVal(FALSE)
 changed_cells <- reactiveVal(matrix(nrow = 0, ncol = 2))
 observeEvent(changed_cells(), {
 
-  if (nrow(changed_cells()) == 0 && have_cells_changed() == TRUE) {
+  if (nrow(changed_cells()) == 0 && isTRUE(have_cells_changed())) {
     have_cells_changed(FALSE)
-  } else if (nrow(changed_cells()) > 0 && have_cells_changed() == FALSE) {
+  } else if (nrow(changed_cells()) > 0 && isFALSE(have_cells_changed())) {
     have_cells_changed(TRUE)
   }
 
 }, ignoreNULL = FALSE)
 
-observeEvent(have_cells_changed(), {
-  session$sendCustomMessage(
-    "have_cells_changed",
-    message = have_cells_changed()
-  )
+
+
+num_row_choices <- c("10", "25", "50", "100", "All")
+
+observeEvent(input$num_rows, {
+
+  if (isTRUE(have_cells_changed())) {
+    #shinyjs::runjs('swal("Changes Detected", "Please save or discard changes before changing the number of rows displayed");')
+    sendSweetAlert(
+      session = session,
+      title = "Changes Detected",
+      text = "save or discard changes before changing the number of rows",
+      type = "warning"
+    )
+  } else {
+
+    for (choice in num_row_choices) {
+      shinyjs::removeClass(id = choice, class = "bold")
+
+    }
+
+    shinyjs::addClass(id = input$num_rows, class = "bold")
+
+    num_rows_trigger(num_rows_trigger() + 1)
+  }
+
 })
 
 
@@ -134,29 +141,49 @@ observeEvent(have_cells_changed(), {
 hours_commit_trigger <- reactiveVal(0)
 
 
-# TODO: validate cell entries
 
-last_pay_period_ended <- as.Date("2019-07-16")
-observeEvent(input$time_tracker_commit, {
+
+last_pay_period_ended <- as.Date("2019-08-13")
+
+
+
+valid_entries <- eventReactive(input$time_tracker_commit, {
   changed_row_nums <- changed_cells()[, 1] %>% unname()
-  hold_deleted_rows <- deleted_rows()
-
-  # get all rows that have changed
   changed_rows <- hot_to_r(input$handson_out)[changed_row_nums, ] %>% unique()
-  
-  #date_now <- lubridate::today(tzone = "America/New_York")
 
-  # don't allow user to change time after payment period has ended
-  if (any(changed_rows$date <= last_pay_period_ended)) {
-    toastr_error("Time entry is closed for this pay period")
-    return()
+
+  if (any(is.na(changed_rows$date))) {
+    toastr_error("Date cannot be missing")
+    return(NULL)
   }
 
 
-  changed_rows <- changed_rows %>%
+  if (any(changed_rows$date <= last_pay_period_ended)) {
+    toastr_error("Time entry is closed for this pay period")
+    return(NULL)
+  }
+
+
+  valid_time_check <- changed_rows %>%
     mutate(
-      time = diff_time(start_time, end_time)
+      start_valid = is_time_valid(start_time),
+      end_valid = is_time_valid(end_time)
     )
+
+  if (!isTRUE(all(valid_time_check$start_valid)) || !isTRUE(all(valid_time_check$end_valid))) {
+    toastr_error("Invalid time detected")
+    return(NULL)
+  }
+
+
+  changed_rows %>%
+    mutate(time = diff_time(start_time, end_time))
+})
+
+
+observeEvent(valid_entries(), {
+  changed_rows <- valid_entries()
+  hold_deleted_rows <- deleted_rows()
 
   tryCatch({
 
@@ -222,9 +249,7 @@ observeEvent(input$time_tracker_commit, {
       # delete any rows that have been removed
       if (!is.null(hold_deleted_rows)) {
         for (i in seq_along(hold_deleted_rows)) {
-
           delete_by(hold_pool, "hours2", by = c("id" = hold_deleted_rows[i]))
-
         }
       }
     })
@@ -233,13 +258,8 @@ observeEvent(input$time_tracker_commit, {
     hours_commit_trigger(hours_commit_trigger() + 1)
 
   }, error = function(e) {
-    if (e[[1]] == "hours_edit_no_time_error") {
-      toastr_error("Incorrect Time Format")
-    } else {
-      toastr_error("Database Connection Error")
-    }
 
-
+    toastr_error("error inserting row into hours table")
     print(list("error inserting row into hours table" = e))
   })
 
@@ -256,37 +276,38 @@ observeEvent(input$handson_out, {
   edited <- hot_to_r(input$handson_out)
 
   # check for deleted rows
-  original_rows <- original$id
-  hold_deleted_rows <- original_rows[!(original_rows %in% edited$id)]
+  #original_rows <- original$id
+  hold_deleted_rows <- original %>%
+    filter(!(.data$id %in% edited$id)) %>%
+    pull("id")
 
   # if any rows have been deleted, remove them from original rows before the check
   # and update `deleted_rows()` reactiveVal
   if (length(hold_deleted_rows) > 0) {
+
     original <- original %>%
       dplyr::filter(!(.data$id %in% hold_deleted_rows))
+
     deleted_rows(hold_deleted_rows)
-  } else {
-    deleted_rows(NULL)
   }
-  
+
+  # adjust tables so the number of rows are the same.  This is important if a row
+  # has been removed.  It is also important it user hits ctr+z after removing a row
   n_rows_blank <- nrow(original) - nrow(edited)
-  
-  blank_rows <- tibble(
-    id = rep(NA_integer_, n_rows_blank),
-    date = rep(NA_character_, n_rows_blank) %>% as.Date(),
-    start_time = rep(NA_character_, n_rows_blank),
-    end_time = rep(NA_character_, n_rows_blank),
-    time = rep(NA_real_, n_rows_blank),
-    client_short_name = rep("", n_rows_blank),
-    project_name = rep("", n_rows_blank),
-    description = rep("", n_rows_blank)
-  )
-  
-  edited <- rbind(edited, blank_rows)
-  
+
+  if (n_rows_blank < 0) {
+    blank_rows <- create_blank_rows(abs(n_rows_blank))
+    original <- rbind(original, blank_rows)
+  } else if (n_rows_blank > 0) {
+    blank_rows <- create_blank_rows(n_rows_blank)
+    edited <- rbind(edited, blank_rows)
+  }
+
+
   n_rows <- nrow(edited)
   n_cols <- length(edited)
   changed_cells <- matrix(NA, ncol = n_cols, nrow = n_rows)
+
 
   # compare the original data to the edited data
   for (i in seq_len(n_cols)) {
@@ -300,21 +321,9 @@ observeEvent(input$handson_out, {
   changed_cells(changed_cell_indices)
 
   # convert from column wise to row wise indexing for use in JS
-  if (length(changed_cell_indices) > 0 || !is.null(deleted_rows())) {
+  if (length(changed_cell_indices) > 0 || length(hold_deleted_rows) > 0) {
     enable("time_tracker_commit")
     enable("time_tracker_discard")
-
-    #changed_cell_indices_out <- changed_cell_indices[, 1] * n_cols + changed_cell_indices[, 2] - n_cols
-    #changed_cell_indices_out <- unname(changed_cell_indices_out)
-
-    #for (i in seq_along(changed_cell_indices_out)) {
-    #  session$sendCustomMessage(
-    #    "cell_background",
-    #    message = list(
-    #      cell = changed_cell_indices_out[i]
-    #    )
-    #  )
-    #}
   } else {
     disable("time_tracker_commit")
     disable("time_tracker_discard")
@@ -324,8 +333,15 @@ observeEvent(input$handson_out, {
 }, ignoreInit = TRUE)
 
 
+
+
+
+
+
 output$handson_out <- renderRHandsontable({
   hold <- handson_time()
+  client_choices <- clients()
+  project_choices <- projects()
 
   input$time_tracker_discard
 
@@ -341,43 +357,31 @@ output$handson_out <- renderRHandsontable({
       "Project",
       "Description"
     ),
-    scrollH = 'auto',
-    scrollV = 'auto',
+    #scrollH = 'auto', these don't seem to do anything
+    #scrollV = 'auto',
     stretchH = 'last',
     height = 500,
     hiddenColumns = list(
       columns = c(3, 5),
       indicators = TRUE
     ),
-    colWidths = c(0.1, 100, 100, 100, 100, 100, 150, 500)
-    #manualColumnResize = TRUE
+    colWidths = c(0.1, 100, 100, 100, 100, 100, 150, 500),
+    #contextMenu = FALSE
+    manualColumnResize = TRUE
   ) %>%
     hot_cols(multiColumnSorting = TRUE) %>%
     hot_col("Hours", readOnly = TRUE) %>%
     hot_col("ID", readOnly = TRUE) %>%
     hot_col("Description", wordWrap = FALSE) %>%
-    # Adding dropdown for Project & Client columns
-    hot_col("Client", type = "dropdown", source = clients()) %>%
-    hot_col("Project", type = "dropdown", source = project_names())
-    # TO DO:
-    #   1) Check on updating Project selection after picking Client selection from dropdown
+    # Adding dropdown for Project and Client columns
+    hot_col("Client", type = "dropdown", source = client_choices) %>%
+    hot_col("Project", type = "dropdown", source = project_choices)
 
-    #hot_cols(renderer = changed_cell_state)
-    # these are slow
-    #hot_col(
-    #  "Start",
-    #  validator = time_validator,
-    #  allowInvalid = TRUE
-    #) %>%
-    #hot_col(
-    #  "End",
-    #  validator = time_validator,
-    #  allowInvalid = FALSE
-    #)
 
   out$x$contextMenu$items <- list(
     "remove_row"
   )
+
 
   out
 })
@@ -482,4 +486,13 @@ output$project_codes <- renderDT({
   )
 })
 
-
+output$download_hours <- downloadHandler(
+  filename = function() paste0("hours-as-of-", Sys.Date(), ".csv"),
+  content = function(file) {
+    write.csv(
+      hours_rows(),
+      file = file,
+      row.names = FALSE
+    )
+  }
+)

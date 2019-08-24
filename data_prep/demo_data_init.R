@@ -1,3 +1,5 @@
+# script to take our actual hours, scrub them, and move them to an SQLite database
+# for the demo
 library(dplyr)
 
 Sys.setenv(R_CONFIG_ACTIVE = "default")
@@ -5,27 +7,68 @@ config <- config::get(file = "config.yml")
 
 conn <- tychobratools::db_connect(config$db)
 
-hours <- conn %>% 
-  tbl("hours2") %>% 
+hours <- conn %>%
+  tbl("hours2") %>%
   collect()
 
 DBI::dbDisconnect(conn)
 
-hours <- hours %>% 
+
+client_projects <- tribble(
+  ~client,      ~project,
+  "Client A",   "Machine Learning",
+  "Client A",   "AI Dashboard",
+  "Client B",   "Predictive Modeling",
+  "Client B",   "Monte Carlo",
+  "Cleitn C",   "MCMC",
+  "Client C",   "Simulation Machine",
+  "Client C",   "Market Analysis",
+  "Client D",   "Tensorflow",
+  "Client E",   "Neural Net",
+  "",           "Admin",
+  "",           "Marketing",
+  "",           "Research"
+)
+
+n_rows <- nrow(hours)
+
+descriptions <- c(
+  "Bug fixes",
+  "Updated tables",
+  "Added charts",
+  "Prepped Data",
+  "Trained Machine Learning Models",
+  "Deep Learning with Tensorflow",
+  "created general AI and destroyed humanity",
+  "Bitcoin Speculation"
+)
+
+hours <- hours %>%
   mutate(
-    client_short_name = sample(c("client_a", "client_b", "client_c", ""), nrow(hours), replace = TRUE),
-    project_name = ifelse(
-      client_short_name == "", 
-      sample(c("admin", "research", "marketing"), nrow(hours), replace = TRUE),
-      paste0(client_short_name, "_", sample(c("proj_1", "proj_2", "proj_3"), nrow(hours), replace = TRUE))
-    ),
-    description = sample(c("Bug fixes", "Updated tables", "Added charts", "Prepped Data"), nrow(hours), replace = TRUE),
+    client_short_name = sample(client_projects$client, n_rows, replace = TRUE),
+    description = sample(descriptions, n_rows, replace = TRUE),
     date = as.character(date)
-  ) %>% 
+  ) %>%
   select(-id)
 
+
+# set projects specific to a client
+
+#' sample_project("Client A")
+sample_project <- function(client_) {
+  projs <- client_projects %>%
+    filter(.data$client == client_) %>%
+    pull("project")
+
+  sample(projs, 1)
+}
+
+for (i in seq_len(n_rows)) {
+  hours$project_name[i] <- sample_project(hours$client_short_name[i])
+}
+
 conn2 <- DBI::dbConnect(
-  RSQLite::SQLite(), 
+  RSQLite::SQLite(),
   dbname = "shiny_app/data/hours_db.sqlite3"
 )
 

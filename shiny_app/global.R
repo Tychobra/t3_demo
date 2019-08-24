@@ -3,11 +3,10 @@ library(shinydashboard)
 library(tychobratools) # remotes::install_github("tychobra/tychobratools")
 library(lubridate)
 library(dplyr)
-library(RPostgres)
+library(RSQLite)
 library(DBI)
 library(pool)
 library(shinyWidgets)
-library(config)
 library(rhandsontable)
 library(highcharter)
 library(xts)
@@ -16,7 +15,6 @@ library(shinyjs)
 library(DT)
 library(shinycssloaders)
 library(polished)
-library(gh)
 library(apexcharter)
 library(shinytoastr)
 
@@ -26,42 +24,24 @@ tychobratools::hc_global_options()
 options(scipen = 999)
 options(spinner.type = 8)
 
-# TODO: add to developers table in database
-github_usernames <- tribble(
-  ~username,                       ~email,
-  "merlinoa", "andy.merlino@tychobra.com",
-  "phoward38", "phoward38@gatech.edu",
-  "RichardHHill", "richard_hill@brown.edu",
-  "jimbrig2011", "jimmy.briggs@oliverwyman.com"
-)
 
-#polished::set_config_env()
 Sys.setenv(R_CONFIG_ACTIVE = "default")
-#Sys.setenv(R_CONFIG_ACTIVE = "production")
-#Sys.setenv(R_CONFIG_ACTIVE = "sqlite_test")
-#api <- source("data/api.R", local = TRUE)$value()
 
 source("helpers/time_hours.R", local = TRUE)
 
+# modules
+source("modules/calendar_chart.R", local = TRUE)
+source("modules/column_chart.R", local = TRUE)
+source("modules/dash_table.R", local = TRUE)
 
-# # get db config file
-# app_config <- NULL
-# try(
-#   app_config <- config::get(file = "config.yml", config = "default"),
-#   silent = TRUE
-# )
-# 
-# # set up pool connection
-# if (is.null(app_config)) {
-#   stop("Missing or invalid config file")
-# } else {
 
+
+# set up pool connection
 pool <- pool::dbPool(
-  drv = RSQLite::SQLite(),
+  RSQLite::SQLite(),
   dbname = "data/hours_db.sqlite3"
 )
 
-# }
 
 # disconnect pool connection when app exits
 onStop(function() {
@@ -105,42 +85,7 @@ valueBox2 <- function (value, subtitle, icon = NULL, backgroundColor = "#7cb5ec"
   )
 }
 
-# options for highcharter download button
-hc_btn_options <- function() {
-  list(
-    contextButton = list(
-      enabled = FALSE
-    ),
-    exportButton = list(
-      text = "Export",
-      symbol = "download",
-      menuItems = list(
-        list(
-          text = "Export to PDF",
-          onclick = JS(
-            "function () {
-              this.exportChart({
-                type: 'application/pdf'
-              });
-            }"
-          )
-        ),
-        list(
-          text = "Export to PNG",
-          onclick = JS(
-            "function () {
-              this.exportChart(null, {
-                chart: {
-                  backgroundColor: '#FFFFFF'
-                },
-              });
-            }"
-          )
-        )
-      )
-    )
-  )
-}
+
 
 
 more_colors <- c(

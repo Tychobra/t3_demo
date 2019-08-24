@@ -1,0 +1,10 @@
+name: t3_client
+title:
+username:
+account: tychobra
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 779268
+bundleId: 2351386
+url: https://tychobra.shinyapps.io/t3_client/
+when: 1566660340.7508

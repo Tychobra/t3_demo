@@ -1,15 +1,15 @@
-server <- function(input, output, session) {
+function(input, output, session) {
 
-  callModule(
-    profile_module,
-    "profile"
-  )
-
+  # user for demo
   user <- reactive({
     "andy.merlino@tychobra.com"
   })
 
-  source("server/01_s_dashboard.R", local = TRUE)
-  source("server/01.2_s_calendar.R", local = TRUE)
+  output$authed_user <- renderText({user()})
+
+  source("server/01.1_s_dashboard.R", local = TRUE)
   source("server/02_s_time_tracker.R", local = TRUE)
+
 }
+
+

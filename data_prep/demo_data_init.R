@@ -20,7 +20,7 @@ client_projects <- tribble(
   "Client A",   "AI Dashboard",
   "Client B",   "Predictive Modeling",
   "Client B",   "Monte Carlo",
-  "Cleitn C",   "MCMC",
+  "Client C",   "MCMC",
   "Client C",   "Simulation Machine",
   "Client C",   "Market Analysis",
   "Client D",   "Tensorflow",

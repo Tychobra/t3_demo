@@ -13,6 +13,9 @@ hours <- conn %>%
 
 DBI::dbDisconnect(conn)
 
+hours <- hours %>%
+  filter(created_by == "andy.merlino@tychobra.com") %>%
+  mutate(created_by = "tycho.brahe@tychobra.com")
 
 client_projects <- tribble(
   ~client,      ~project,

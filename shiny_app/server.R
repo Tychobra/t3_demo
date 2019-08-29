@@ -2,7 +2,7 @@ function(input, output, session) {
 
   # user for demo
   user <- reactive({
-    "andy.merlino@tychobra.com"
+    "tycho.brahe@tychobra.com"
   })
 
   output$authed_user <- renderText({user()})
